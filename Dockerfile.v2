@@ -1,0 +1,22 @@
+FROM golang:1.24-alpine
+
+# Install Python, our Python dependencies, and the curl tool for diagnostics
+RUN apk --no-cache add python3 py3-flask py3-gunicorn py3-requests curl
+
+# Set up the application directory
+WORKDIR /app
+
+# Copy all project files into the container
+COPY . .
+
+# Build the Go application, saving the output in the current directory
+RUN go build -o go-p2p-service .
+
+# Make the startup script executable
+RUN chmod +x start.sh
+
+# Expose the Flask web port
+EXPOSE 5000
+
+# Run the startup script
+CMD ["./start.sh"]

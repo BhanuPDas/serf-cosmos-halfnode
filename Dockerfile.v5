@@ -1,0 +1,15 @@
+FROM golang:1.24-alpine
+
+RUN apk --no-cache add python3 py3-flask py3-gunicorn py3-requests curl
+
+WORKDIR /app
+
+COPY . .
+
+RUN go build -o go-p2p-service .
+
+RUN chmod +x start.sh
+
+EXPOSE 5000
+
+CMD ["./start.sh"]

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmos Serf P2P Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .leader-glow { box-shadow: 0 0 15px #facc15; }
+        .chosen-glow { box-shadow: 0 0 15px #a78bfa; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans">
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-teal-400">Smart Contract Ledger Dashboard</h1>
+            <p class="text-gray-400 mt-2">A P2P network with a State Machine and Pre-compiled Contracts</p>
+        </header>
+        <main class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            <!-- Left Column: Status and Members -->
+            <div class="lg:col-span-3">
+                <div id="status-card" class="bg-gray-800 rounded-lg shadow-xl p-6 mb-8">
+                    <h2 class="text-2xl font-semibold mb-4">Cluster Status</h2>
+                    <div class="flex justify-between items-center text-center">
+                        <div>
+                            <p class="text-gray-400">Current Leader</p>
+                            <p id="leader-name" class="font-mono text-lg text-yellow-400">-</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400">Chosen by Contract</p>
+                            <p id="chosen-node-name" class="font-mono text-lg text-violet-400">-</p>
+                        </div>
+                    </div>
+                </div>
+                <div id="members-list" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+            </div>
+            <!-- Right Column: State and Actions -->
+            <div class="lg:col-span-2 space-y-8">
+                <div class="bg-gray-800 rounded-lg shadow-xl p-6">
+                    <h2 class="text-2xl font-semibold mb-4">Account Balances</h2>
+                    <div id="account-balances"></div>
+                </div>
+                <div class="bg-gray-800 rounded-lg shadow-xl p-6">
+                    <h2 class="text-2xl font-semibold mb-2">Smart Contracts</h2>
+                    <form id="transfer-form" class="mb-6">
+                        <h3 class="font-bold text-lg mb-2">1. Transfer Tokens</h3>
+                        <input id="tx-from" type="text" class="w-full bg-gray-700 p-2 rounded-md mb-2" placeholder="From (e.g., alice)">
+                        <input id="tx-to" type="text" class="w-full bg-gray-700 p-2 rounded-md mb-2" placeholder="To (e.g., bob)">
+                        <input id="tx-amount" type="number" class="w-full bg-gray-700 p-2 rounded-md mb-2" placeholder="Amount (e.g., 100)">
+                        <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 font-bold py-2 px-4 rounded-lg">Execute Transfer</button>
+                    </form>
+                    <form id="choose-node-form">
+                         <h3 class="font-bold text-lg mb-2">2. Choose a Node</h3>
+                         <p class="text-sm text-gray-400 mb-2">This contract will deterministically select an active node.</p>
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 font-bold py-2 px-4 rounded-lg">Execute Node Choice</button>
+                    </form>
+                    <div id="tx-status" class="mt-4 text-sm text-center"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script>
+        // DOM Elements
+        const membersList = document.getElementById('members-list');
+        const leaderNameEl = document.getElementById('leader-name');
+        const chosenNodeEl = document.getElementById('chosen-node-name');
+        const balancesEl = document.getElementById('account-balances');
+        const txStatus = document.getElementById('tx-status');
+        const transferForm = document.getElementById('transfer-form');
+        const chooseNodeForm = document.getElementById('choose-node-form');
+
+        function createMemberCard(member, leaderName, chosenNodeName) {
+            const card = document.createElement('div');
+            let cardClasses = 'bg-gray-700 rounded-lg p-4 transition-all';
+            if (member.Name === leaderName) cardClasses += ' leader-glow';
+            if (member.Name === chosenNodeName) cardClasses += ' chosen-glow';
+            card.className = cardClasses;
+
+            // Use a simple text string for status, not a complex object
+            let statusText = "unknown";
+            if (member.Status === 0) statusText = "alive";
+            if (member.Status === 1) statusText = "leaving";
+            if (member.Status === 2) statusText = "left";
+            if (member.Status === 3) statusText = "failed";
+
+            let statusClass = statusText === 'alive' ? 'bg-green-500' : 'bg-red-500';
+
+            card.innerHTML = `<div class="flex justify-between items-start">
+                    <h3 class="font-bold truncate pr-2">${member.Name}</h3>
+                    <span class="text-xs font-semibold px-2 py-1 rounded-full <span class="math-inline">\{statusClass\}"\></span>{statusText}</span>
+                </div>`;
+            return card;
+        }
+
+        function updateBalances(accounts) {
+            balancesEl.innerHTML = '';
+            if (accounts) {
+                for (const [account, balance] of Object.entries(accounts)) {
+                    const div = document.createElement('div');
+                    div.className = 'flex justify-between items-center text-gray-300 py-1';
+                    div.innerHTML = `<span><span class="math-inline">\{account\}</span\><span class\="font\-mono"\></span>{balance}</span>`;
+                    balancesEl.appendChild(div);
+                }
+            }
+        }
+
+        async function fetchStatus() {
+            try {
+                const response = await fetch('/api/status');
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                const { leader, members, accounts, chosen_node } = data;
+
+                membersList.innerHTML = '';
+                if(members) {
+                    members.forEach(member => membersList.appendChild(createMemberCard(member, leader, chosen_node)));
+                }
+
+                leaderNameEl.textContent = leader || "None";
+                chosenNodeEl.textContent = chosen_node || "None";
+                updateBalances(accounts || {});
+
+            } catch (error) {
+                leaderNameEl.textContent = "Error";
+                console.error("Failed to fetch status:", error);
+            }
+        }
+
+        async function broadcastTx(txData) {
+            txStatus.textContent = 'Broadcasting...';
+            txStatus.className = 'mt-4 text-sm text-center text-yellow-400';
+            try {
+                const response = await fetch('/api/broadcast_tx', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(txData)
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || 'Broadcast failed');
+                txStatus.textContent = 'Transaction broadcasted!';
+                txStatus.className = 'mt-4 text-sm text-center text-green-400';
+            } catch (error) {
+                txStatus.textContent = `Error: ${error.message}`;
+                txStatus.className = 'mt-4 text-sm text-center text-red-400';
+            }
+        }
+
+        transferForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const txData = {
+                contract: "transfer",
+                from: document.getElementById('tx-from').value.trim().toLowerCase(),
+                to: document.getElementById('tx-to').value.trim().toLowerCase(),
+                amount: parseInt(document.getElementById('tx-amount').value, 10)
+            };
+            if (!txData.from || !txData.to || isNaN(txData.amount)) {
+                txStatus.textContent = 'All transfer fields are required.';
+                txStatus.className = 'mt-4 text-sm text-center text-red-400';
+                return;
+            }
+            broadcastTx(txData);
+            transferForm.reset();
+        });
+
+        chooseNodeForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const txData = { contract: "choose_node", from: "system" };
+            broadcastTx(txData);
+        });
+
+        fetchStatus();
+        setInterval(fetchStatus, 2000);
+    </script>
+</body>
+</html>
