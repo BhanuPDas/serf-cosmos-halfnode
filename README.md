@@ -21,3 +21,6 @@
 5. Before doing any transaction, enable tshark to capture packets: ***sudo tshark -i docker0 "udp" -w /tmp/capture23.pcap***
 6. Do the transaction
 7. After the transaction, validate the details in the packet: ***sudo tshark -r capture23.pcap -V***
+
+
+## Consensus: the consensus mechanism adopted in the half node configuration is a plain voting one without quorum
