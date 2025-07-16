@@ -23,4 +23,5 @@
 7. After the transaction, validate the details in the packet: ***sudo tshark -r capture23.pcap -V***
 
 
-## Consensus: the consensus mechanism adopted in the half node configuration is a plain voting one without quorum
+## Consensus: 
+The consensus mechanism adopted in the half node configuration is a plain voting one without quorum
