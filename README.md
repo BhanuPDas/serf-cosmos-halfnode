@@ -15,8 +15,8 @@
 ## Steps to test and validate the application:
 
 1. Once all nodes are up and running, navigate to ***http://172.22.120.133:5000/*** on browser to get the dashboard and do the transaction.
-2. Same transaction details can be verified in docker logs: ***docker logs <<container name>>***
-3. Additionally, the data can be verified on packed level.
+2. Same transaction details can be verified in docker logs: ***docker logs container_name***
+3. Additionally, the data can be verified on packet level.
 4. ***Install tshark.***
 5. Before doing any transaction, enable tshark to capture packets: ***sudo tshark -i docker0 "udp" -w /tmp/capture23.pcap***
 6. Do the transaction
